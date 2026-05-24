@@ -181,6 +181,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
     </div>
   </div>
   <div class="padded">
+    <div id="d-admin-bar" style="display:none;margin-bottom:10px">
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+        <button class="btn btn-p btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="openUserMgmt()">👥 Kelola Kader</button>
+        <button class="btn btn-sec btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="openLogs()">📋 Log Aktivitas</button>
+      </div>
+    </div>
     <div id="d-alert" class="ibox ir" style="display:none;cursor:pointer" onclick="goTo('toddlers')">
       <span style="font-size:20px">🚨</span>
       <div><div style="font-size:14px;font-weight:700;color:var(--r)" id="d-alert-txt"></div><div style="font-size:11px;color:var(--r)">Tap untuk lihat daftar</div></div>
@@ -413,13 +419,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
 </div>
 
 <!-- ═══ USER MANAGEMENT ═══ -->
-<div id="page-users" class="page">
-  <div class="phdr"><button class="bkbtn" onclick="goBack()">←</button><h2>Manajemen Pengguna</h2>
-    <button class="btn btn-p btn-sm" onclick="openAddUser()">+ Tambah</button>
-  </div>
-  <div id="user-list"></div>
-</div>
-
+    <div id="page-users" class="page">
+      <div class="phdr">
+        <button class="bkbtn" onclick="goBack()">←</button>
+        <h2>Kelola Kader &amp; Pengguna</h2>
+        <button class="btn btn-p btn-sm" onclick="openAddUser()" style="white-space:nowrap">➕ Tambah Kader</button>
+      </div>
+      <div style="background:var(--white);border-bottom:1px solid var(--border);padding:8px 16px">
+        <div style="display:flex;gap:8px;overflow-x:auto">
+          <button class="chip on" onclick="filterUsers(this,'all')">👥 Semua</button>
+          <button class="chip" onclick="filterUsers(this,'kader')">🧑‍⚕️ Kader</button>
+          <button class="chip" onclick="filterUsers(this,'admin')">👑 Admin</button>
+          <button class="chip" onclick="filterUsers(this,'active')">✅ Aktif</button>
+          <button class="chip" onclick="filterUsers(this,'inactive')">🚫 Nonaktif</button>
+        </div>
+      </div>
+      <div id="user-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;background:var(--white);border-bottom:1px solid var(--border)"></div>
+      <div id="user-list"></div>
+    </div>
 
     <!-- ═══ FORCE CHANGE PASSWORD ═══ -->
     <div id="page-forcepwd" class="page">
@@ -650,6 +667,9 @@ function rdDash(){
   var rl={admin:'Administrator',kader:'Kader Posyandu',researcher:'Peneliti'};
   ge('dname').textContent=CU.name;
   ge('drole').textContent=CU.puskesmas||rl[CU.role]||CU.role;
+  // Show admin bar for admin role
+  var adminBar=ge('d-admin-bar');
+  if(adminBar) adminBar.style.display=(CU.role==='admin')?'block':'none';
   GET('/dashboard',function(err,res){
     if(err||!res.success) return;
     var d=res.data;
@@ -1162,32 +1182,98 @@ function changePwd(){
 // USER MANAGEMENT (Admin only)
 // ═══════════════════════════════════════════════════════
 var USERS_CACHE=[];
+var USER_FILTER='all';
 function openUserMgmt(){PAGE_STACK.push('users');showPage('users');rdUsers();}
+function filterUsers(el,f){
+  USER_FILTER=f;
+  var chips=document.querySelectorAll('#page-users .chip');
+  for(var i=0;i<chips.length;i++) chips[i].classList.remove('on');
+  el.classList.add('on');
+  renderUserList();
+}
 function rdUsers(){
   spin(true);
   GET('/users',function(err,res){
     spin(false);
     if(err||!res.success){toast('❌ '+(err?err.error:res.error));return;}
     USERS_CACHE=res.data||[];
-    var el=ge('user-list');var rl={admin:'Administrator',kader:'Kader Posyandu',researcher:'Peneliti'};
-    var rlc={admin:'var(--r)',kader:'var(--p)',researcher:'var(--s)'};
-    var html='';
-    for(var i=0;i<USERS_CACHE.length;i++){
-      var u=USERS_CACHE[i];
-      html+='<div class="user-card">'
-        +'<div style="width:42px;height:42px;border-radius:21px;background:var(--p-l);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--p);flex-shrink:0">'+u.name[0]+'</div>'
-        +'<div style="flex:1">'
-          +'<div style="font-size:14px;font-weight:700">'+u.name+'</div>'
-          +'<div style="font-size:11px;color:var(--g3)">'+u.nik+' · '+(u.puskesmas||'—')+'</div>'
+    // Stats
+    var total=USERS_CACHE.length;
+    var kaders=USERS_CACHE.filter(function(u){return u.role==='kader';}).length;
+    var active=USERS_CACHE.filter(function(u){return u.active;}).length;
+    var stats=ge('user-stats');
+    if(stats) stats.innerHTML=
+      '<div style="background:var(--p-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--p)">'+total+'</div><div style="font-size:11px;color:var(--p)">Total User</div></div>'
+      +'<div style="background:var(--s-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--s)">'+kaders+'</div><div style="font-size:11px;color:var(--s)">Kader</div></div>'
+      +'<div style="background:var(--p-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--p)">'+active+'</div><div style="font-size:11px;color:var(--p)">Aktif</div></div>';
+    renderUserList();
+  });
+}
+function renderUserList(){
+  var el=ge('user-list');
+  var rl={admin:'Administrator',kader:'Kader Posyandu',researcher:'Peneliti'};
+  var rlc={admin:C.red,kader:C.green,researcher:C.blue};
+  var rlbg={admin:'var(--r-l)',kader:'var(--p-l)',researcher:'var(--s-l)'};
+  var zl={all:'Semua zona',hills:'Bukit ⛰️',lowlands:'Dataran 🌾',coastal:'Pantai 🏖️'};
+  
+  var list=USERS_CACHE.filter(function(u){
+    if(USER_FILTER==='kader') return u.role==='kader';
+    if(USER_FILTER==='admin') return u.role==='admin'||u.role==='researcher';
+    if(USER_FILTER==='active') return u.active===1||u.active===true;
+    if(USER_FILTER==='inactive') return !u.active;
+    return true;
+  });
+  
+  if(!list.length){
+    el.innerHTML='<div class="empty"><div style="font-size:48px">👥</div><div style="font-size:15px;font-weight:700;color:var(--g2);margin-top:12px">Tidak ada pengguna</div></div>';
+    return;
+  }
+  
+  var html='';
+  for(var i=0;i<list.length;i++){
+    var u=list[i];
+    var rLabel=rl[u.role]||u.role;
+    var rColor=rlc[u.role]||'var(--p)';
+    var rBg=rlbg[u.role]||'var(--p-l)';
+    var isActive=u.active===1||u.active===true;
+    var mustChg=u.must_change_pwd===1||u.must_change_pwd===true;
+    
+    html+='<div style="background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px">'
+      +'<div style="display:flex;align-items:flex-start;gap:12px">'
+        // Avatar
+        +'<div style="width:46px;height:46px;border-radius:23px;background:'+rBg+';display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:'+rColor+';flex-shrink:0">'+u.name[0]+'</div>'
+        // Info
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+            +'<span style="font-size:15px;font-weight:700;color:var(--g1)">'+u.name+'</span>'
+            +'<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;background:'+rBg+';color:'+rColor+'">'+rLabel+'</span>'
+            +(isActive
+              ?'<span style="font-size:10px;color:var(--p)">● Aktif</span>'
+              :'<span style="font-size:10px;color:var(--r)">● Nonaktif</span>')
+            +(mustChg?'<span style="font-size:10px;color:var(--w)">⚠ Wajib ganti pwd</span>':'')
+          +'</div>'
+          +'<div style="font-size:12px;color:var(--g3);margin-top:3px">'+u.nik+'</div>'
+          +'<div style="font-size:12px;color:var(--g3)">'+(u.puskesmas||'—')+' · '+(zl[u.zone]||u.zone||'—')+'</div>'
         +'</div>'
-        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
-          +'<span class="role-tag" style="background:var(--p-l);color:'+(rlc[u.role]||'var(--p)')+'">'+( rl[u.role]||u.role)+'</span>'
-          +(u.active?'<span style="font-size:10px;color:var(--p)">● Aktif</span>':'<span style="font-size:10px;color:var(--r)">● Nonaktif</span>')
+        // Actions
+        +'<div style="display:flex;gap:6px;flex-shrink:0">'
+          +'<button class="ibtn" onclick="openEditUser('+u.id+')" title="Edit">✏️</button>'
+          +(CU&&CU.id!==u.id?'<button class="ibtn" onclick="confirmDeactivate('+u.id+',''+u.name+'','+isActive+')" title="'+(isActive?'Nonaktifkan':'Aktifkan')+'">'+(isActive?'🚫':'✅')+'</button>':'')
         +'</div>'
-        +'<button class="ibtn" onclick="openEditUser('+u.id+')" title="Edit">✏️</button>'
-        +'</div>';
-    }
-    el.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--g3)">Belum ada pengguna</div>';
+      +'</div>'
+    +'</div>';
+  }
+  el.innerHTML=html;
+}
+function confirmDeactivate(uid,name,isActive){
+  var msg=isActive?('Nonaktifkan akun '+name+'? Kader tidak bisa login.'):('Aktifkan kembali akun '+name+'?');
+  if(!confirm(msg)) return;
+  spin(true);
+  PUT('/users/'+uid,{active:isActive?0:1,name:name},function(err,res){
+    spin(false);
+    if(err||!res.success){toast('❌ '+(err?err.error:res.error));return;}
+    toast(isActive?('🚫 '+name+' dinonaktifkan'):('✅ '+name+' diaktifkan kembali'));
+    rdUsers();
   });
 }
 function openAddUser(){
