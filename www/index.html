@@ -165,7 +165,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
       <button class="demo-chip" style="border-color:var(--s);color:var(--s)" onclick="fillD('peneliti')">Peneliti</button>
     </div>
   </div>
-  <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--g3);line-height:1.8">Peneliti: Heri Bahtiar · UMS 2025<br>Kabupaten Lombok Tengah, NTB</div>
+  <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--g3);line-height:1.8">
+    Peneliti: Heri Bahtiar · UMS 2025<br>Kabupaten Lombok Tengah, NTB<br>
+    <span id="server-url-info" style="color:var(--p);font-size:10px"></span>
+  </div>
 </div>
 
 <!-- ═══ DASHBOARD ═══ -->
@@ -490,6 +493,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
 // ═══════════════════════════════════════════════════════
 var BASE_URL = '';  // auto: kosong = gunakan domain yang sama (bekerja untuk semua hosting)
 
+// Tampilkan info server di login page
+function showServerInfo(){
+  var el=ge('server-url-info');
+  if(el){
+    var host=window.location.hostname;
+    el.textContent='Server: '+host+BASE_URL+'/api/ping';
+  }
+}
+
 // ═══════════════════════════════════════════════════════
 // WHO TABLES
 // ═══════════════════════════════════════════════════════
@@ -565,9 +577,6 @@ function clearSess(){TOKEN='';CU=null;try{localStorage.removeItem('sp_token');lo
 
 function api(method,path,body,cb){
   var url=BASE_URL+'/api'+path;
-  var opts={method:method,headers:{'Content-Type':'application/json'}};
-  if(TOKEN) opts.headers['Authorization']='Bearer '+TOKEN;
-  if(body) opts.body=JSON.stringify(body);
   var xhr=new XMLHttpRequest();
   xhr.open(method,url,true);
   xhr.setRequestHeader('Content-Type','application/json');
@@ -576,8 +585,8 @@ function api(method,path,body,cb){
     try{var d=JSON.parse(xhr.responseText);cb(null,d);}
     catch(e){cb({error:'Parse error'},null);}
   };
-  xhr.onerror=function(){cb({error:'Network error - periksa koneksi ke server'},null);};
-  xhr.ontimeout=function(){cb({error:'Timeout - server tidak merespons'},null);};
+  xhr.onerror=function(){cb({error:'Tidak bisa terhubung. Coba refresh halaman.'},null);};
+  xhr.ontimeout=function(){cb({error:'Server lambat merespons ('+Math.round(xhr.timeout/1000)+'s). Coba lagi.'},null);};
   xhr.timeout=20000;
   if(body) xhr.send(JSON.stringify(body));
   else xhr.send();
@@ -593,7 +602,11 @@ function DEL(p,cb){api('DELETE',p,null,cb);}
 function ge(id){return document.getElementById(id);}
 function toast(msg,dur){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},dur||2800);}
 function spin(show){ge('spinner').className=show?'show':'';}
-function setConnStatus(online){ge('online-dot').className=online?'on':'';ge('conn-status').textContent=online?'Terhubung ke server':'Tidak terhubung';}
+function setConnStatus(online){
+  var dot=ge('online-dot');var st=ge('conn-status');
+  if(dot) dot.className=online?'on':'';
+  if(st)  st.textContent=online?'● Terhubung ke server':'● Cek koneksi...';
+}
 
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
@@ -628,16 +641,32 @@ function closeModal(){ge('modal-overlay').className='';}
 // ═══════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════
-function fillD(r){var m={admin:['superadmin','admin123'],kader:['kader001','kader123'],peneliti:['1901234567890001','peneliti123']};ge('l-nik').value=m[r][0];ge('l-pwd').value=m[r][1];}
+function fillD(r){
+  var m={admin:['superadmin','admin123'],kader:['kader001','kader123'],peneliti:['1901234567890001','peneliti123']};
+  ge('l-nik').value=m[r][0];
+  ge('l-pwd').value=m[r][1];
+  // Auto-login setelah isi form
+  setTimeout(function(){doLogin();},100);
+}
 function togPwd(){var i=ge('l-pwd');i.type=i.type==='password'?'text':'password';}
 function doLogin(){
   var nik=(ge('l-nik').value||'').trim();
   var pwd=(ge('l-pwd').value||'').trim();
   if(!nik||!pwd){toast('⚠️ Isi NIK dan password');return;}
+  ge('conn-status').textContent='● Menghubungkan ke server...';
   spin(true);
   POST('/auth/login',{nik:nik,password:pwd},function(err,res){
     spin(false);
-    if(err||!res.success){toast('❌ '+(err?err.error:res.error));setConnStatus(false);return;}
+    if(err){
+      var msg=err.error||'Gagal terhubung - cek koneksi internet';
+      toast('❌ '+msg);
+      ge('conn-status').textContent='● Tidak terhubung';
+      return;
+    }
+    if(!res||!res.success){
+      toast('❌ '+(res&&res.error?res.error:'NIK atau password salah'));
+      return;
+    }
     saveSess(res.data.token,res.data.user);
     setConnStatus(true);
     if(res.data.must_change_pwd){
@@ -1403,19 +1432,19 @@ function rdLogs(){
 (function boot(){
   loadSaved();
   // Check server connection
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET',BASE_URL+'/api/ping',true);
-  xhr.timeout=15000;
-  xhr.onload=function(){
-    try{
-      var d=JSON.parse(xhr.responseText);
-      if(d.success){setConnStatus(true);}
-      else{setConnStatus(false);}
-    }catch(e){setConnStatus(false);}
-  };
-  xhr.onerror=function(){setConnStatus(false);};
-  xhr.ontimeout=function(){setConnStatus(false);};
-  xhr.send();
+  // Ping async - tidak blokir login
+  (function(){
+    var px=new XMLHttpRequest();
+    px.open('GET',BASE_URL+'/api/ping',true);
+    px.timeout=20000;
+    px.onload=function(){
+      try{var d=JSON.parse(px.responseText);setConnStatus(d&&d.success);}
+      catch(e){setConnStatus(false);}
+    };
+    px.onerror=function(){setConnStatus(false);};
+    px.ontimeout=function(){setConnStatus(false);};
+    px.send();
+  })();
 
   if(CU&&TOKEN){
     // Verify token still valid
