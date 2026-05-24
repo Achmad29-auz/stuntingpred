@@ -578,7 +578,7 @@ function api(method,path,body,cb){
   };
   xhr.onerror=function(){cb({error:'Network error - periksa koneksi ke server'},null);};
   xhr.ontimeout=function(){cb({error:'Timeout - server tidak merespons'},null);};
-  xhr.timeout=10000;
+  xhr.timeout=20000;
   if(body) xhr.send(JSON.stringify(body));
   else xhr.send();
 }
@@ -1212,7 +1212,7 @@ function rdUsers(){
 function renderUserList(){
   var el=ge('user-list');
   var rl={admin:'Administrator',kader:'Kader Posyandu',researcher:'Peneliti'};
-  var rlc={admin:C.red,kader:C.green,researcher:C.blue};
+  var rlc={admin:'#A32D2D',kader:'#0F6E56',researcher:'#185FA5'};
   var rlbg={admin:'var(--r-l)',kader:'var(--p-l)',researcher:'var(--s-l)'};
   var zl={all:'Semua zona',hills:'Bukit ⛰️',lowlands:'Dataran 🌾',coastal:'Pantai 🏖️'};
   
@@ -1405,8 +1405,14 @@ function rdLogs(){
   // Check server connection
   var xhr=new XMLHttpRequest();
   xhr.open('GET',BASE_URL+'/api/ping',true);
-  xhr.timeout=5000;
-  xhr.onload=function(){try{var d=JSON.parse(xhr.responseText);if(d.success) setConnStatus(true);}catch(e){setConnStatus(false);}};
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    try{
+      var d=JSON.parse(xhr.responseText);
+      if(d.success){setConnStatus(true);}
+      else{setConnStatus(false);}
+    }catch(e){setConnStatus(false);}
+  };
   xhr.onerror=function(){setConnStatus(false);};
   xhr.ontimeout=function(){setConnStatus(false);};
   xhr.send();
