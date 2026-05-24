@@ -2,14 +2,11 @@ services:
   - type: web
     name: stuntingpred
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn server:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    startCommand: gunicorn server:app --workers 1 --bind 0.0.0.0:$PORT --timeout 120 --preload
     envVars:
       - key: SECRET_KEY
-        generateValue: true
+        value: stuntingpred-ums-heri2025-lombok-ntb-secret-render
       - key: PORT
         value: 10000
-    disk:
-      name: stunting-data
-      mountPath: /data
-      sizeGB: 1
