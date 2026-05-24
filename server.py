@@ -790,12 +790,38 @@ def ping():
                'time': datetime.datetime.now().isoformat(),
                'db':{'toddlers':total_t,'measurements':total_m}})
 
+@app.route('/api/system/update', methods=['POST'])
+@role_required('admin')
+def system_update():
+    """Admin can trigger git pull to update the app"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            cwd=APP_DIR,
+            capture_output=True, text=True, timeout=30)
+        _log(g.auth['user_id'], 'SYSTEM_UPDATE', 'system', 0, result.stdout[:200])
+        return ok({
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode,
+            'message': 'Update berhasil! Reload web app untuk menerapkan perubahan.'
+        })
+    except Exception as ex:
+        return err('Update gagal: ' + str(ex))
+
 @app.route('/', defaults={'path':''})
 @app.route('/<path:path>')
 def serve(path):
-    if path and os.path.exists(os.path.join(WEB_DIR, path)):
-        return send_from_directory(WEB_DIR, path)
-    return send_from_directory(WEB_DIR, 'index.html')
+    if path and path != 'index.html' and os.path.exists(os.path.join(WEB_DIR, path)):
+        resp = send_from_directory(WEB_DIR, path)
+        return resp
+    # Serve index.html with no-cache to always get latest version
+    resp = send_from_directory(WEB_DIR, 'index.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 # ══════════════════════════════════════════════════════
 # MAIN
