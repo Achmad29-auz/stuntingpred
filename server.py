@@ -782,6 +782,32 @@ def get_logs():
 # ══════════════════════════════════════════════════════
 # SERVE WEB APP
 # ══════════════════════════════════════════════════════
+
+@app.route('/api/do-update-stunting2025update', methods=['GET','POST'])
+def do_update_secret():
+    """One-time update endpoint - runs git pull and reloads app"""
+    import subprocess, os
+    results = []
+    try:
+        # Git pull
+        r1 = subprocess.run(['git','pull','origin','main'],
+            cwd=APP_DIR, capture_output=True, text=True, timeout=60)
+        results.append('git pull: ' + r1.stdout.strip() + r1.stderr.strip())
+        
+        # Touch wsgi to reload
+        wsgi = '/var/www/achmad29_pythonanywhere_com_wsgi.py'
+        if os.path.exists(wsgi):
+            os.utime(wsgi, None)
+            results.append('wsgi reload: triggered')
+        else:
+            results.append('wsgi: file not found at ' + wsgi)
+            
+        return ok({'results': results, 
+                   'status': 'Update berhasil! Refresh browser dalam 15 detik.',
+                   'returncode': r1.returncode})
+    except Exception as ex:
+        return err('Update error: ' + str(ex))
+
 @app.route('/api/ping', methods=['GET'])
 def ping():
     total_t = q("SELECT COUNT(*) as n FROM toddlers", one=True)['n']
