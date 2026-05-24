@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>StuntingPred Update</title>
+<style>
+body{font-family:Arial;max-width:500px;margin:60px auto;padding:20px;text-align:center}
+button{padding:14px 28px;background:#0F6E56;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;width:100%;margin:8px 0}
+pre{background:#111;color:#7FE7C4;padding:16px;border-radius:8px;text-align:left;font-size:12px;white-space:pre-wrap;margin-top:16px}
+.ok{color:#0F6E56}.err{color:#A32D2D}
+</style>
+</head>
+<body>
+<h2>🩺 StuntingPred — Auto Update</h2>
+<p>Klik tombol untuk update server ke versi terbaru</p>
+<button onclick="doUpdate()">🔄 Update Server Sekarang</button>
+<button onclick="doReload()" style="background:#185FA5">⚡ Test Login Langsung</button>
+<pre id="log">Siap...</pre>
+
+<script>
+var TOKEN = '';
+var log = document.getElementById('log');
+
+function showLog(msg, isErr) {
+  log.innerHTML = (isErr ? '<span class="err">❌ ' : '<span class="ok">✅ ') + msg + '</span>\n' + log.innerHTML;
+}
+
+// Step 1: Login as admin to get token
+function getToken(cb) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/auth/login', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.timeout = 15000;
+  xhr.onload = function() {
+    try {
+      var d = JSON.parse(xhr.responseText);
+      if (d.success && d.data.token) {
+        TOKEN = d.data.token;
+        showLog('Login admin berhasil. Token OK.');
+        cb(null, TOKEN);
+      } else {
+        cb(d.error || 'Login gagal');
+      }
+    } catch(e) { cb('Parse error: ' + e); }
+  };
+  xhr.onerror = function() { cb('Network error'); };
+  xhr.ontimeout = function() { cb('Timeout'); };
+  xhr.send(JSON.stringify({nik:'superadmin', password:'admin123'}));
+}
+
+function doUpdate() {
+  log.textContent = 'Step 1: Login admin...\n';
+  getToken(function(err, token) {
+    if (err) { showLog(err, true); return; }
+    log.textContent += 'Step 2: Menjalankan git pull di server...\n';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/system/update', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.timeout = 60000;
+    xhr.onload = function() {
+      try {
+        var d = JSON.parse(xhr.responseText);
+        if (d.success) {
+          showLog('Git pull berhasil!\n' + d.data.stdout);
+          log.textContent += '\n✅ Update selesai!\nRefresh halaman utama sekarang:\n';
+          log.textContent += window.location.origin + '\n';
+          setTimeout(function() {
+            if(confirm('Update selesai! Buka halaman utama?')) {
+              window.location.href = '/';
+            }
+          }, 2000);
+        } else {
+          showLog(d.error || 'Update gagal', true);
+          log.textContent += xhr.responseText;
+        }
+      } catch(e) { showLog('Parse error: ' + xhr.responseText, true); }
+    };
+    xhr.onerror = function() { showLog('Network error saat update', true); };
+    xhr.ontimeout = function() { showLog('Timeout 60s - mungkin git pull masih berjalan', true); };
+    xhr.send(JSON.stringify({}));
+  });
+}
+
+function doReload() {
+  window.location.href = '/?' + Date.now();
+}
+
+// Auto test on load
+window.onload = function() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/api/ping', true);
+  xhr.timeout = 10000;
+  xhr.onload = function() {
+    try {
+      var d = JSON.parse(xhr.responseText);
+      showLog('Server online: v' + d.data.version + ' | DB: ' + JSON.stringify(d.data.db));
+    } catch(e) {}
+  };
+  xhr.send();
+};
+</script>
+</body>
+</html>
