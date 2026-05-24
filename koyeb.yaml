@@ -1,0 +1,15 @@
+name: stuntingpred
+services:
+  - name: api
+    type: web
+    instance_types:
+      - type: free
+    ports:
+      - port: 8000
+        protocol: http
+    env:
+      - key: PORT
+        value: "8000"
+      - key: SECRET_KEY
+        value: "GANTI-DENGAN-SECRET-ANDA-MINIMAL-32-KARAKTER"
+    run_command: gunicorn server:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120

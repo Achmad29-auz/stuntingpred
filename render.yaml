@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: stuntingpred
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 10000
+    disk:
+      name: stunting-data
+      mountPath: /data
+      sizeGB: 1
