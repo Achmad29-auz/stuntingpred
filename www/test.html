@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>StuntingPred - API Test</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;padding:20px}
+button{padding:10px 20px;margin:5px;cursor:pointer;background:#0F6E56;color:white;border:none;border-radius:6px;font-size:14px}
+button.sec{background:#185FA5}
+pre{background:#1a1a1a;color:#7FE7C4;padding:15px;border-radius:8px;font-size:12px;overflow-x:auto;white-space:pre-wrap}
+.ok{color:#0F6E56;font-weight:bold}.err{color:#A32D2D;font-weight:bold}
+input{width:100%;padding:8px;margin:4px 0 10px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<h2>🩺 StuntingPred — API Test</h2>
+<p>Halaman ini untuk mendiagnosa koneksi ke server.</p>
+
+<h3>1. Test Ping Server</h3>
+<button onclick="testPing()">Test /api/ping</button>
+<pre id="out-ping">Klik tombol...</pre>
+
+<h3>2. Test Login</h3>
+<input id="t-nik" value="superadmin" placeholder="NIK">
+<input id="t-pwd" type="password" value="admin123" placeholder="Password">
+<button onclick="testLogin()">Test Login</button>
+<pre id="out-login">Klik tombol...</pre>
+
+<h3>3. Info Browser & URL</h3>
+<pre id="out-info"></pre>
+
+<script>
+function showInfo(){
+  var el=document.getElementById('out-info');
+  el.textContent='URL: '+window.location.href+'\n'
+    +'API: '+window.location.origin+'/api/ping\n'
+    +'Protocol: '+window.location.protocol+'\n'
+    +'Host: '+window.location.host;
+}
+function testPing(){
+  var el=document.getElementById('out-ping');
+  el.textContent='Loading...';
+  var xhr=new XMLHttpRequest();
+  var url=window.location.origin+'/api/ping';
+  el.textContent='Requesting: '+url+'\n';
+  xhr.open('GET',url,true);
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    el.innerHTML='<span class="ok">STATUS: '+xhr.status+'</span>\nRESPONSE:\n'+xhr.responseText;
+  };
+  xhr.onerror=function(){
+    el.innerHTML='<span class="err">ERROR: Network error - server tidak bisa diakses</span>\nURL: '+url;
+  };
+  xhr.ontimeout=function(){
+    el.innerHTML='<span class="err">TIMEOUT: Server tidak merespons dalam 15 detik</span>';
+  };
+  xhr.send();
+}
+function testLogin(){
+  var el=document.getElementById('out-login');
+  var nik=document.getElementById('t-nik').value;
+  var pwd=document.getElementById('t-pwd').value;
+  el.textContent='Loading...';
+  var xhr=new XMLHttpRequest();
+  var url=window.location.origin+'/api/auth/login';
+  xhr.open('POST',url,true);
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    var cls=xhr.status===200?'ok':'err';
+    el.innerHTML='<span class="'+cls+'">STATUS: '+xhr.status+'</span>\nURL: '+url+'\nRESPONSE:\n'+xhr.responseText.substring(0,500);
+  };
+  xhr.onerror=function(){
+    el.innerHTML='<span class="err">ERROR: Tidak bisa POST ke '+url+'</span>';
+  };
+  xhr.ontimeout=function(){
+    el.innerHTML='<span class="err">TIMEOUT: 15 detik tidak ada respons</span>';
+  };
+  xhr.send(JSON.stringify({nik:nik,password:pwd}));
+}
+showInfo();
+</script>
+</body>
+</html>
